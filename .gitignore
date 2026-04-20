@@ -46,11 +46,13 @@ Release/
 .ipch/
 *.launch
 *.settings/
-*.cproject
-*.project
-*.mxproject
-*.ioc
+# *.cproject
+# *.project
+# *.mxproject
+# *.ioc
 # Zephyr build
 zephyr/
 *.mod.c
 modules/
+
+*.metadata/
