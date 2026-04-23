@@ -49,6 +49,7 @@ static void MX_USART1_UART_Init(void);
 
 static uint16_t LDR_ReadRaw(void);
 static void UART1_WriteString(const char *text);
+static void I2C1_Reset(void);
 static HAL_StatusTypeDef I2C1_MasterWrite(uint8_t address, const uint8_t *data, uint16_t length);
 
 
@@ -80,6 +81,7 @@ static HAL_StatusTypeDef I2C1_MasterWrite(uint8_t address, const uint8_t *data, 
   I2C1->CR1 |= I2C_CR1_START;
   if (I2C1_WaitFlagSet(&I2C1->SR1, I2C_SR1_SB) != HAL_OK)
   {
+    I2C1_Reset();
     return HAL_ERROR;
   }
 
@@ -87,6 +89,7 @@ static HAL_StatusTypeDef I2C1_MasterWrite(uint8_t address, const uint8_t *data, 
   if (I2C1_WaitFlagSet(&I2C1->SR1, I2C_SR1_ADDR) != HAL_OK)
   {
     I2C1->CR1 |= I2C_CR1_STOP;
+    I2C1_Reset();
     return HAL_ERROR;
   }
 
@@ -98,6 +101,7 @@ static HAL_StatusTypeDef I2C1_MasterWrite(uint8_t address, const uint8_t *data, 
     if (I2C1_WaitFlagSet(&I2C1->SR1, I2C_SR1_TXE) != HAL_OK)
     {
       I2C1->CR1 |= I2C_CR1_STOP;
+      I2C1_Reset();
       return HAL_ERROR;
     }
 
@@ -107,11 +111,22 @@ static HAL_StatusTypeDef I2C1_MasterWrite(uint8_t address, const uint8_t *data, 
   if (I2C1_WaitFlagSet(&I2C1->SR1, I2C_SR1_BTF) != HAL_OK)
   {
     I2C1->CR1 |= I2C_CR1_STOP;
+    I2C1_Reset();
     return HAL_ERROR;
   }
 
   I2C1->CR1 |= I2C_CR1_STOP;
   return HAL_OK;
+}
+
+static void I2C1_Reset(void)
+{
+  I2C1->CR1 &= ~I2C_CR1_PE;
+  I2C1->CR1 = 0U;
+  I2C1->CR2 = (APB1_CLOCK_HZ / 1000000U);
+  I2C1->CCR = (uint16_t)(APB1_CLOCK_HZ / (100000U * 2U));
+  I2C1->TRISE = (uint16_t)((APB1_CLOCK_HZ / 1000000U) + 1U);
+  I2C1->CR1 = I2C_CR1_PE;
 }
 
 static uint16_t LDR_ReadRaw(void)
@@ -206,7 +221,12 @@ int main(void)
                ldr_mv % 1000U);
       SSD1306_WriteString(oled_line);
 
-      SSD1306_UpdateScreen();
+      if (!SSD1306_UpdateScreen())
+      {
+        UART1_WriteString("OLED update failed, retrying\r\n");
+        I2C1_Reset();
+        (void)SSD1306_Init(I2C1_MasterWrite);
+      }
     }
 
     HAL_Delay(LDR_UPDATE_INTERVAL_MS);

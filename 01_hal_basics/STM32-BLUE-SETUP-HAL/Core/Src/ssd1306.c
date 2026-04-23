@@ -214,13 +214,13 @@ void SSD1306_Clear(void)
   SSD1306_ClearBuffer();
 }
 
-void SSD1306_UpdateScreen(void)
+bool SSD1306_UpdateScreen(void)
 {
   uint8_t page;
 
   if (!ssd1306_ready)
   {
-    return;
+    return false;
   }
 
   for (page = 0U; page < SSD1306_PAGES; page++)
@@ -230,10 +230,11 @@ void SSD1306_UpdateScreen(void)
         SSD1306_WriteCommand(0x10U) != HAL_OK ||
         SSD1306_WriteData(&ssd1306_buffer[page * SSD1306_WIDTH], SSD1306_WIDTH) != HAL_OK)
     {
-      ssd1306_ready = false;
-      return;
+      return false;
     }
   }
+
+  return true;
 }
 
 void SSD1306_SetCursor(uint8_t x, uint8_t y)
