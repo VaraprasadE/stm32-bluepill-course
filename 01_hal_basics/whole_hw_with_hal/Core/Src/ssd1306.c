@@ -1,3 +1,10 @@
+/**
+ * @file    ssd1306.c
+ * @brief   SSD1306 OLED display driver implementation using I2C.
+ *
+ * This module provides initialization, buffer management, text rendering,
+ * and screen update functions for a 128x64 SSD1306 display.
+ */
 #include "ssd1306.h"
 
 #include <string.h>
@@ -39,6 +46,11 @@ static uint8_t ssd1306_buffer[SSD1306_BUFFER_SIZE];
 static uint8_t ssd1306_cursor_x = 0U;
 static uint8_t ssd1306_cursor_y = 0U;
 
+/**
+ * @brief  Send a single command byte to the SSD1306 controller.
+ * @param  command Command byte to transmit.
+ * @retval HAL status.
+ */
 static HAL_StatusTypeDef SSD1306_WriteCommand(uint8_t command)
 {
   uint8_t packet[2] = {0x00U, command};
@@ -51,6 +63,12 @@ static HAL_StatusTypeDef SSD1306_WriteCommand(uint8_t command)
   return ssd1306_write(ssd1306_address, packet, 2U);
 }
 
+/**
+ * @brief  Write a block of display data to the SSD1306 controller.
+ * @param  data Pointer to data buffer.
+ * @param  length Number of bytes to write.
+ * @retval HAL status.
+ */
 static HAL_StatusTypeDef SSD1306_WriteData(const uint8_t *data, uint16_t length)
 {
   uint8_t packet[17];
@@ -83,11 +101,21 @@ static HAL_StatusTypeDef SSD1306_WriteData(const uint8_t *data, uint16_t length)
   return HAL_OK;
 }
 
+/**
+ * @brief  Clear the internal SSD1306 frame buffer.
+ * @note   Does not update the display until SSD1306_UpdateScreen() is called.
+ */
 static void SSD1306_ClearBuffer(void)
 {
   memset(ssd1306_buffer, 0, sizeof(ssd1306_buffer));
 }
 
+/**
+ * @brief  Set or clear a pixel in the internal SSD1306 buffer.
+ * @param  x Horizontal pixel coordinate.
+ * @param  y Vertical pixel coordinate.
+ * @param  on true to set the pixel, false to clear it.
+ */
 static void SSD1306_DrawPixel(uint8_t x, uint8_t y, bool on)
 {
   uint16_t index;
@@ -108,6 +136,13 @@ static void SSD1306_DrawPixel(uint8_t x, uint8_t y, bool on)
   }
 }
 
+/**
+ * @brief  Draw a character into the SSD1306 buffer using the built-in font.
+ * @param  x Starting horizontal position.
+ * @param  y Starting vertical position.
+ * @param  character ASCII character to draw.
+ * @param  scale Font scaling factor.
+ */
 static void SSD1306_DrawChar(uint8_t x, uint8_t y, char character, uint8_t scale)
 {
   uint8_t glyph[5] = {0};
@@ -141,6 +176,11 @@ static void SSD1306_DrawChar(uint8_t x, uint8_t y, char character, uint8_t scale
   }
 }
 
+/**
+ * @brief  Attempt SSD1306 initialization at the specified I2C address.
+ * @param  address 7-bit I2C slave address.
+ * @retval HAL status.
+ */
 static HAL_StatusTypeDef SSD1306_TryInitAtAddress(uint8_t address)
 {
   static const uint8_t init_sequence[] = {
@@ -177,6 +217,13 @@ static HAL_StatusTypeDef SSD1306_TryInitAtAddress(uint8_t address)
   return HAL_OK;
 }
 
+/**
+ * @brief  Initialize the SSD1306 driver and display hardware.
+ * @param  write_function I2C write callback used to send data to the display.
+ * @retval true if initialization succeeds, false otherwise.
+ * @note   The write callback must be valid before calling this function.
+ * @note   SSD1306_UpdateScreen() should be used after drawing to refresh the display.
+ */
 bool SSD1306_Init(SSD1306_WriteFunction write_function)
 {
   ssd1306_write = write_function;
@@ -199,11 +246,18 @@ bool SSD1306_Init(SSD1306_WriteFunction write_function)
   return true;
 }
 
+/**
+ * @brief  Query whether the SSD1306 driver is initialized and ready.
+ * @retval true when the display is ready for rendering.
+ */
 bool SSD1306_IsReady(void)
 {
   return ssd1306_ready;
 }
 
+/**
+ * @brief  Clear the visible SSD1306 buffer contents.
+ */
 void SSD1306_Clear(void)
 {
   if (!ssd1306_ready)
@@ -214,6 +268,11 @@ void SSD1306_Clear(void)
   SSD1306_ClearBuffer();
 }
 
+/**
+ * @brief  Flush the internal SSD1306 buffer to the display.
+ * @retval true on successful transfer, false on failure.
+ * @note   Call this after modifying the buffer with drawing or text operations.
+ */
 bool SSD1306_UpdateScreen(void)
 {
   uint8_t page;
@@ -237,12 +296,22 @@ bool SSD1306_UpdateScreen(void)
   return true;
 }
 
+/**
+ * @brief  Set the current text cursor position.
+ * @param  x Horizontal start position in pixels.
+ * @param  y Vertical start position in pixels.
+ */
 void SSD1306_SetCursor(uint8_t x, uint8_t y)
 {
   ssd1306_cursor_x = x;
   ssd1306_cursor_y = y;
 }
 
+/**
+ * @brief  Write a null-terminated text string into the SSD1306 buffer.
+ * @param  text Null-terminated string to render.
+ * @note   The string is rendered into the buffer only; call SSD1306_UpdateScreen() to display it.
+ */
 void SSD1306_WriteString(const char *text)
 {
   while ((text != NULL) && (*text != '\0') && ssd1306_ready)
